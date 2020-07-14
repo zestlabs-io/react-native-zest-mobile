@@ -41,6 +41,11 @@
     }
    ```
 
+ * Install [react-native-zest-mobile](https://www.npmjs.com/package/@zestlabs-io/react-native-zest-mobile) plugin
+    ```console
+    npm i @zestlabs-io/react-native-zest-mobile
+    ```
+
  * Download from your ZEST Mobile Cloud account the credentials and place them in [src/zest-mobile.js](src/zest-mobile.js). Example:
     ```js
     const authConfig = {
