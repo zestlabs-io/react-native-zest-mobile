@@ -1,6 +1,6 @@
 {
   "name": "@zestlabs-io/react-native-zest-mobile",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "ZEST Labs Mobility Platform plugin for React Native",
   "main": "src/index.js",
   "types": "src/index.d.ts",
@@ -15,6 +15,10 @@
   "repository": {
     "type": "git",
     "url": "github.com/zestlabs-io/react-native-zest-mobile"
+  },
+  "dependencies": {
+    "@types/pouchdb-core": "*",
+    "@types/pouchdb-find": "*"
   },
   "keywords": [
     "react",
