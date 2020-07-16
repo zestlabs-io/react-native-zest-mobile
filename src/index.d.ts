@@ -153,39 +153,6 @@ export interface ZDB<Content extends {} = {}> {
     revision: PouchDB.Core.RevisionId,
     options?: PouchDB.Core.Options): Promise<PouchDB.Core.Response>;
 
-  /** Get database information */
-  info(callback: PouchDB.Core.Callback<PouchDB.Core.DatabaseInfo>): void;
-
-  /** Get database information */
-  info(): Promise<PouchDB.Core.DatabaseInfo>;
-
-  /**
-   * A list of changes made to documents in the database, in the order they were made.
-   * It returns an object with the method cancel(), which you call if you don’t want to listen to new changes anymore.
-   *
-   * It is an event emitter and will emit a 'change' event on each document change,
-   * a 'complete' event when all the changes have been processed, and an 'error' event when an error occurs.
-   * Calling cancel() will unsubscribe all event listeners automatically.
-   */
-  changes<Model>(options: PouchDB.Core.ChangesOptions | null,
-    callback: PouchDB.Core.Callback<PouchDB.Core.Changes<Content & Model>>): void;
-
-  /**
-   * A list of changes made to documents in the database, in the order they were made.
-   * It returns an object with the method cancel(), which you call if you don’t want to listen to new changes anymore.
-   *
-   * It is an event emitter and will emit a 'change' event on each document change,
-   * a 'complete' event when all the changes have been processed, and an 'error' event when an error occurs.
-   * Calling cancel() will unsubscribe all event listeners automatically.
-   */
-  changes<Model>(options?: PouchDB.Core.ChangesOptions): PouchDB.Core.Changes<Content & Model>;
-
-  /** Close the database */
-  close(callback: PouchDB.Core.Callback<any>): void;
-
-  /** Close the database */
-  close(): Promise<void>;
-
   /**
    * Attaches a binary object to a document.
    * This method will update an existing document to add the attachment, so it requires a rev if the document already exists.

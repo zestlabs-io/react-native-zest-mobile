@@ -1,6 +1,6 @@
 {
   "name": "@zestlabs-io/react-native-zest-mobile",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "ZEST Labs Mobility Platform plugin for React Native",
   "main": "src/index.js",
   "types": "src/index.d.ts",
