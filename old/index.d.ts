@@ -250,3 +250,13 @@ export interface ZDB<Content extends {} = {}> {
     callback: PouchDB.Core.Callback<PouchDB.Find.DeleteIndexResponse<Content>>): void;
   deleteIndex(index?: PouchDB.Find.DeleteIndexOptions): Promise<PouchDB.Find.DeleteIndexResponse<Content>>;
 }
+
+export interface SyncConfig {
+  syncUrl: string;
+  download: Array<string>;
+  upload: Array<string>;
+}
+
+export interface SyncManager {
+
+}

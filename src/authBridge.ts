@@ -1,5 +1,6 @@
+/// <reference types="react-native-app-auth" />
 //@ts-check
-import { authorize, refresh, revoke } from 'react-native-app-auth';
+import { authorize, refresh, revoke, AuthConfiguration } from 'react-native-app-auth';
 import jwt_decode from 'jwt-decode';
 import { EventEmitter } from 'events';
 import ZDB from './zdb';
@@ -8,20 +9,39 @@ export const AuthLoggedIn = 'logged_in';
 export const AuthLoggedOut = 'logged_out';
 export const AuthUserChanged = 'user_changed';
 
+export interface Token {
+  exp?: number;
+}
+
+export interface User {
+  idToken?: any;
+  idTokenRAW?: string;
+  refreshToken?: string;
+}
+
+export interface AuthState {
+  loggedIn: boolean,
+  user: User,
+  accessToken?: string;
+}
+
 const EmptyState = {
   loggedIn: false,
   user: {
     idToken: {},
-    idTokenRAW: '',
-  },
-};
+    idTokenRAW: ''
+  } as User,
+} as AuthState;
 
 const TokenRefreshIntervalMs = 60000;
 
 export class AuthBridge {
   state = EmptyState;
+  private _config: AuthConfiguration;
+  private _authDB: ZDB<unknown>;
+  private _eventEmitter: EventEmitter;
 
-  constructor(config) {
+  constructor(config: AuthConfiguration) {
     this._authDB = new ZDB('_auth', { adapter: 'react-native-sqlite' });
     this._config = config;
     this._eventEmitter = new EventEmitter();
@@ -30,28 +50,32 @@ export class AuthBridge {
 
   // *********************************
   // Add on('event', listener)
-  on = (eventName, listener) => {
+  on(eventName: string | symbol, listener: (...args: any[]) => void) {
     this._eventEmitter.on(eventName, listener);
     return this;
   };
 
-  removeEventListener = (eventName, listener) => {
+  removeListener(eventName: string | symbol, listener: (...args: any[]) => void) {
     this._eventEmitter.removeListener(eventName, listener);
   };
 
   // *********************************
   // Status methods
   // *********************************
-  isUserLoggedIn = () => {
-    return this.state.loggedIn && new Date(this.state.user.idToken.exp * 1000).getTime() > new Date().getTime();
+  isUserLoggedIn(): boolean {
+    return this.state.loggedIn &&
+      this.state.user != null &&
+      this.state.user.idToken != null &&
+      this.state.user.idToken.exp != null &&
+      new Date(this.state.user!.idToken!.exp! * 1000).getTime() > new Date().getTime();
   };
 
-  getAuthToken = () => {
+  getAuthToken(): string {
     const token = 'Bearer ' + this.state.user.idTokenRAW;
     return token;
   };
 
-  getUserData = () => {
+  getUserData(): User {
     if (this.isUserLoggedIn()) {
       return this.state.user;
     }
@@ -62,7 +86,7 @@ export class AuthBridge {
   // Subscribe to login/logout events
   // *********************************
 
-  _emit = (event, payload, error = false) => {
+  _emit = (event: string | symbol, payload: any, error = false) => {
     try {
       this._eventEmitter.emit(event, payload, error);
     } catch (err) {
@@ -116,7 +140,7 @@ export class AuthBridge {
   triggerLogout = async () => {
     try {
       const result = await revoke(this._config, {
-        tokenToRevoke: this.state.accessToken,
+        tokenToRevoke: this.state.accessToken!,
         sendClientId: true,
       });
     } catch (err) {
@@ -128,7 +152,7 @@ export class AuthBridge {
   // *********************************
   // Helper data handling methods
   // *********************************
-  _onAuthData = (data) => {
+  _onAuthData = (data: any) => {
     if (data !== undefined && new Date(data.accessTokenExpirationDate) > new Date()) {
       const bridge = this;
       this.state = { user: data, loggedIn: true };
@@ -138,7 +162,7 @@ export class AuthBridge {
     // console.log("No data loaded " + JSON.stringify(data) + " " + new Date(data.accessTokenExpirationDate));
   };
 
-  _onAuthSuccess = (data) => {
+  _onAuthSuccess = (data: any) => {
     // console.log("Decode", data);
     const idToken = jwt_decode(data.idToken);
     const profile = idToken;
@@ -177,12 +201,12 @@ export class AuthBridge {
     this._emit(AuthUserChanged, this.state.user);
   };
 
-  _onAuthError = (err) => {
+  _onAuthError = (err: Error) => {
     console.log('Error in authentication: ' + err);
     this._emit(AuthLoggedOut, {});
   };
 
-  _onRefreshError = (err) => {
+  _onRefreshError = (err: Error) => {
     // console.log("Error in refresh: " + err);
     if (!this.isUserLoggedIn()) {
       // Reset the state if the token is expired
@@ -195,20 +219,10 @@ export class AuthBridge {
     this.state = EmptyState;
     try {
       const logData = await this._authDB.get('login-data');
-      this._authDB.remove(doc);
+      this._authDB.remove(logData);
     } catch (err) { }
 
     this._emit(AuthLoggedOut, {});
-  };
-
-  _translateAttributes = (data) => {
-    const attributes = {};
-    data
-      .filter((attr) =>
-        ['given_name', 'family_name', 'email_verified', 'name', 'locale', 'tenant_id', 'email'].includes(attr.Name),
-      )
-      .forEach((attr) => (attributes[attr.Name] = attr.Value));
-    return attributes;
   };
 
   _runRefresh = () => {

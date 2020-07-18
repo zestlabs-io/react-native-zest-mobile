@@ -48,6 +48,14 @@ class SyncManager {
 
   getRemoteSyncURL = (db) => {
     let dbName = '';
+    // switch (db) {
+    //     case "customers":
+    //         dbName = "c$10000$$customers";
+    //         break;
+    //     case "products":
+    //         dbName = "c$10000$$products";
+    //         break;
+    // }
     dbName = db;
     const url = this._config.syncUrl + '/' + dbName;
     return url;
@@ -94,6 +102,7 @@ class SyncManager {
   };
 
   onUserLogin = (user) => {
+    console.log('onUserLogin', JSON.stringify(user));
     this._loggedIn = true;
     Object.entries(this._syncDBs).forEach(([key, value]) => {
       value.startSync();
@@ -116,7 +125,7 @@ const SyncType = {
 
 class SyncDB {
   constructor(syncManager, name, localDb, getAuthTokenFunc, syncType) {
-    // console.debug("[SyncDB] constructor", name);
+    // console.debug("[SyncDB] constructor", getAuthTokenFunc());
     this._syncManager = syncManager;
     this._localDb = localDb;
     this._name = name;
@@ -128,43 +137,53 @@ class SyncDB {
     return this._localDb;
   };
   startSync = () => {
-    console.debug('Start ' + this._name + ' ' + this._syncType + ' sync');
+    const gat = this._getAuthTokenFunc;
     const remoteDbURL = this._syncManager.getRemoteSyncURL(this._name);
+    // console.debug('Start ' + this._name + ' ' + this._syncType + ' sync ', remoteDbURL, this._getAuthTokenFunc());
     const remoteDb = new PouchDB(remoteDbURL, {
       fetch: function (url, opts) {
-        const token = this._getAuthTokenFunc();
-        opts.headers.set('Authorization', token);
-        console.debug('=>', url);
+        // console.debug('=>', url, gat);
+        try {
+          const token = gat();
+          opts.headers.set('Authorization', token);
+          // console.log('=> set auth: ', token);
+        } catch (err) {
+          console.log('failed to get auth token', err);
+        }
         return PouchDB.fetch(url, opts);
       },
     });
-    switch (this._syncType) {
-      case SyncType.DOWNSTREAM:
-        this._handlerSync = this._localDb._internalDB.replicate.from(remoteDb, {
-          live: true,
-          retry: true,
-          checkpoint: 'target',
-        });
-        //  = PouchDB.replicate(remoteDbURL, sdb._internalDB, );r
-        // this._handlerSync = remoteDb.replicate.to(sdb._localDb._internalDB, );
-        break;
-      case SyncType.UPSTREAM:
-        this._handlerSync = this._localDb._internalDB.replicate.to(remoteDb, {
-          live: true,
-          retry: true,
-          checkpoint: 'source',
-        });
-        //  = PouchDB.replicate(remoteDbURL, sdb._internalDB, );
-        // this._handlerSync = remoteDb.replicate.to(sdb._localDb._internalDB, );
-        break;
-      case SyncType.TWO_WAY:
-        // this._handlerSync = sdb._localDb._internalDB.sync(remoteDb, {
-        //     live: true,
-        //     retry: true,
-        //     // since: 0,
-        //     checkpoint: 'source',
-        // });
-        break;
+    try {
+      switch (this._syncType) {
+        case SyncType.DOWNSTREAM:
+          this._handlerSync = this._localDb._internalDB.replicate.from(remoteDb, {
+            live: true,
+            retry: true,
+            checkpoint: 'target',
+          });
+          //  = PouchDB.replicate(remoteDbURL, sdb._internalDB, );r
+          // this._handlerSync = remoteDb.replicate.to(sdb._localDb._internalDB, );
+          break;
+        case SyncType.UPSTREAM:
+          this._handlerSync = this._localDb._internalDB.replicate.to(remoteDb, {
+            live: true,
+            retry: true,
+            checkpoint: 'source',
+          });
+          //  = PouchDB.replicate(remoteDbURL, sdb._internalDB, );
+          // this._handlerSync = remoteDb.replicate.to(sdb._localDb._internalDB, );
+          break;
+        case SyncType.TWO_WAY:
+          // this._handlerSync = sdb._localDb._internalDB.sync(remoteDb, {
+          //     live: true,
+          //     retry: true,
+          //     // since: 0,
+          //     checkpoint: 'source',
+          // });
+          break;
+      }
+    } catch (err) {
+      console.error('Failed to setup replication', err);
     }
     if (this._handlerSync) {
       this._handlerSync = this._handlerSync

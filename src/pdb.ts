@@ -1,13 +1,18 @@
-//@ts-check
+//@flow
+//@ts-ignore
 import pdb from '@craftzdog/pouchdb-core-react-native';
+//@ts-ignore
 import HttpPouch from 'pouchdb-adapter-http';
+//@ts-ignore
 import replication from '@craftzdog/pouchdb-replication-react-native';
+//@ts-ignore
+import SQLite from 'react-native-sqlite-2';
+//@ts-ignore
+import SQLiteAdapterFactory from 'pouchdb-adapter-react-native-sqlite';
+
 import mapreduce from 'pouchdb-mapreduce';
 import PouchdbFind from 'pouchdb-find';
 import PouchdbUpsert from 'pouchdb-upsert';
-
-import SQLite from 'react-native-sqlite-2';
-import SQLiteAdapterFactory from 'pouchdb-adapter-react-native-sqlite';
 
 const SQLiteAdapter = SQLiteAdapterFactory(SQLite);
 
