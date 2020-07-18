@@ -23,7 +23,7 @@ declare class SyncManager {
     removeListener(eventName: string | symbol, listener: (...args: any[]) => void): void;
     getRemoteSyncURL: (db: string) => string;
     _emit: (dbName: string, event: string | symbol, payload: any, error?: boolean) => void;
-    syncDB: (dbName: string) => any;
+    syncDB: (dbName: string) => ZDB<unknown>;
     _registerSync: (name: string, localDb: ZDB<{}>, getAuthTokenFunc: Function, syncType: string) => SyncDB;
     onUserLogin: (user: User) => void;
     onUserLogout: () => void;

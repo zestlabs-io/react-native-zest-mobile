@@ -21,11 +21,11 @@ export declare class AuthBridge {
     private _authDB;
     private _eventEmitter;
     constructor(config: AuthConfiguration);
-    on(eventName: string | symbol, listener: (...args: any[]) => void): this;
-    removeListener(eventName: string | symbol, listener: (...args: any[]) => void): void;
-    isUserLoggedIn(): boolean;
-    getAuthToken(): string;
-    getUserData(): User;
+    on: (eventName: string | symbol, listener: (...args: any[]) => void) => this;
+    removeListener: (eventName: string | symbol, listener: (...args: any[]) => void) => void;
+    isUserLoggedIn: () => boolean;
+    getAuthToken: () => string;
+    getUserData: () => User;
     _emit: (event: string | symbol, payload: any, error?: boolean) => void;
     loadAuthFromDB: () => Promise<void>;
     triggerAuthorization: () => void;

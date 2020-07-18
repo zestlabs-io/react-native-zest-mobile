@@ -50,19 +50,19 @@ export class AuthBridge {
 
   // *********************************
   // Add on('event', listener)
-  on(eventName: string | symbol, listener: (...args: any[]) => void) {
+  on = (eventName: string | symbol, listener: (...args: any[]) => void) => {
     this._eventEmitter.on(eventName, listener);
     return this;
   };
 
-  removeListener(eventName: string | symbol, listener: (...args: any[]) => void) {
+  removeListener = (eventName: string | symbol, listener: (...args: any[]) => void) => {
     this._eventEmitter.removeListener(eventName, listener);
   };
 
   // *********************************
   // Status methods
   // *********************************
-  isUserLoggedIn(): boolean {
+  isUserLoggedIn = (): boolean => {
     return this.state.loggedIn &&
       this.state.user != null &&
       this.state.user.idToken != null &&
@@ -70,12 +70,12 @@ export class AuthBridge {
       new Date(this.state.user!.idToken!.exp! * 1000).getTime() > new Date().getTime();
   };
 
-  getAuthToken(): string {
+  getAuthToken = (): string => {
     const token = 'Bearer ' + this.state.user.idTokenRAW;
     return token;
   };
 
-  getUserData(): User {
+  getUserData = (): User => {
     if (this.isUserLoggedIn()) {
       return this.state.user;
     }

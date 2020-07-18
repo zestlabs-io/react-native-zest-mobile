@@ -27,7 +27,7 @@ class SyncManager {
   private _eventEmitter: EventEmitter;
   private _authBridge: AuthBridge;
   private _loggedIn: boolean;
-  private _syncDBs = new Map();
+  private _syncDBs = new Map<string, SyncDB>();
 
   constructor(config: SyncConfig, authBridge: AuthBridge) {
     this._config = config;
@@ -58,17 +58,7 @@ class SyncManager {
   };
 
   getRemoteSyncURL = (db: string) => {
-    let dbName = '';
-    // switch (db) {
-    //     case "customers":
-    //         dbName = "c$10000$$customers";
-    //         break;
-    //     case "products":
-    //         dbName = "c$10000$$products";
-    //         break;
-    // }
-    dbName = db;
-    const url = this._config.syncUrl + '/' + dbName;
+    const url = this._config.syncUrl + '/' + db;
     return url;
   };
 
@@ -78,10 +68,13 @@ class SyncManager {
 
   syncDB = (dbName: string) => {
     console.debug(' ==> SyncDB', dbName);
-    if (Object.keys(this._syncDBs).includes(dbName)) {
+    this._syncDBs.forEach((value: SyncDB, key: string) => {
       console.debug('Db ' + dbName + ' already setup for sync.');
-      return this._syncDBs.get(dbName).getLocalDB();
-    }
+      if (key == dbName) {
+        console.debug('Db ', dbName, ' already setup for sync')
+        return;
+      }
+    })
     const localDb = new ZDB(dbName, { adapter: 'react-native-sqlite' });
     let syncType = SyncType.UPSTREAM;
     if (this._config.download.includes(dbName)) {
@@ -115,14 +108,14 @@ class SyncManager {
   onUserLogin = (user: User) => {
     console.log('onUserLogin', JSON.stringify(user));
     this._loggedIn = true;
-    Object.entries(this._syncDBs).forEach(([key, value]) => {
+    this._syncDBs.forEach((value: SyncDB, key: string) => {
       value.startSync();
     });
   };
 
   onUserLogout = () => {
     this._loggedIn = false;
-    Object.entries(this._syncDBs).forEach(([key, value]) => {
+    this._syncDBs.forEach((value: SyncDB, key: string) => {
       value.stopSync();
     });
   };
