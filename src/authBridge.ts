@@ -153,12 +153,15 @@ export class AuthBridge {
   // Helper data handling methods
   // *********************************
   _onAuthData = (data: any) => {
-    if (data !== undefined && new Date(data.accessTokenExpirationDate) > new Date()) {
+    if (data !== undefined &&
+      data.accessTokenExpirationDate !== undefined &&
+      new Date(data.accessTokenExpirationDate) > new Date()) {
       const bridge = this;
       this.state = { user: data, loggedIn: true };
       this._emit(AuthLoggedIn, data);
       return;
     }
+    throw Error('Invalid or expired token');
     // console.log("No data loaded " + JSON.stringify(data) + " " + new Date(data.accessTokenExpirationDate));
   };
 

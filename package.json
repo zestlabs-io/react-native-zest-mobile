@@ -1,6 +1,6 @@
 {
   "name": "@zestlabs-io/react-native-zest-mobile",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "ZEST Labs Mobility Platform plugin for React Native",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -29,7 +29,7 @@
     "zestlabs"
   ],
   "author": "Zest Labs GmbH",
-  "license": "LicenseRef-LICENSE",
+  "license": "SEE LICENSE IN LICENSE.md",
   "devDependencies": {
     "@craftzdog/pouchdb-core-react-native": "^7.0.0",
     "@craftzdog/pouchdb-replication-react-native": "^7.0.0",

@@ -1,0 +1,1 @@
+Copyright 2020© Zest Labs GmbH - All Rights Reserved
