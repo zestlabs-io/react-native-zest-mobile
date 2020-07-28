@@ -69,10 +69,9 @@ class SyncManager {
   syncDB = (dbName: string) => {
     console.debug(' ==> SyncDB', dbName);
     this._syncDBs.forEach((value: SyncDB, key: string) => {
-      console.debug('Db ' + dbName + ' already setup for sync.');
       if (key == dbName) {
-        console.debug('Db ', dbName, ' already setup for sync')
-        return;
+        // console.debug('Db ', dbName, ' already setup for sync')
+        return value.getLocalDB();
       }
     })
     const localDb = new ZDB(dbName, { adapter: 'react-native-sqlite' });
@@ -198,27 +197,27 @@ class SyncDB {
     if (this._handlerSync) {
       this._handlerSync = this._handlerSync
         .on('change', (info: any) => {
-          console.debug('change', this._name);
+          // console.debug('change', this._name);
           this._syncManager._emit(this._name, SyncChange, info);
         })
         .on('paused', (err: Error) => {
-          console.debug('paused', this._name);
+          // console.debug('paused', this._name);
           this._syncManager._emit(this._name, SyncPaused, err);
         })
         .on('active', () => {
-          console.debug('active', this._name);
+          // console.debug('active', this._name);
           this._syncManager._emit(this._name, SyncActive, {});
         })
         .on('denied', (err: Error) => {
-          console.debug('denied', this._name);
+          // console.debug('denied', this._name);
           this._syncManager._emit(this._name, SyncDenied, err);
         })
         .on('complete', (info: Error) => {
-          console.debug('complete', this._name);
+          // console.debug('complete', this._name);
           this._syncManager._emit(this._name, SyncComplete, info);
         })
         .on('error', (err: Error) => {
-          console.debug('error', this._name);
+          // console.debug('error', this._name);
           this._syncManager._emit(this._name, SyncError, err);
         });
     }
