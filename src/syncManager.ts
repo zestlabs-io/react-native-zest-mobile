@@ -20,6 +20,7 @@ export interface SyncConfig {
   syncUrl: string;
   download: Array<string>;
   upload: Array<string>;
+  twoway: Array<string>;
 }
 
 class SyncManager {
@@ -40,6 +41,9 @@ class SyncManager {
       this.syncDB(db);
     });
     this._config.upload.forEach((db) => {
+      this.syncDB(db);
+    });
+    this._config.twoway.forEach((db) => {
       this.syncDB(db);
     });
   }
@@ -80,6 +84,8 @@ class SyncManager {
       syncType = SyncType.DOWNSTREAM;
     } else if (this._config.upload.includes(dbName)) {
       syncType = SyncType.UPSTREAM;
+    } else if (this._config.twoway.includes(dbName)) {
+      syncType = SyncType.TWO_WAY;
     } else {
       console.warn(
         'No sync DB defined for name ' +
