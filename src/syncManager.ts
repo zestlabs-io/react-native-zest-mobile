@@ -183,12 +183,12 @@ class SyncDB {
           // this._handlerSync = remoteDb.replicate.to(sdb._localDb._internalDB, );
           break;
         case SyncType.TWO_WAY:
-          // this._handlerSync = sdb._localDb._internalDB.sync(remoteDb, {
-          //     live: true,
-          //     retry: true,
-          //     // since: 0,
-          //     checkpoint: 'source',
-          // });
+          this._handlerSync = this._localDb.sync(remoteDb, {
+            live: true,
+            retry: true,
+            // since: 0,
+            checkpoint: 'source',
+          });
           break;
       }
     } catch (err) {

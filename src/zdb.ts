@@ -456,4 +456,12 @@ export default class ZDB<Content> {
   ): PouchDB.Replication.Replication<Content> {
     return this._internalDB.replicate.from(source, options, callback);
   };
+
+  sync<Content>(
+    target: string | PouchDB.Database<Content>,
+    options?: PouchDB.Replication.ReplicateOptions,
+    callback?: PouchDB.Core.Callback<PouchDB.Replication.SyncResultComplete<Content>>
+  ): PouchDB.Replication.Sync<Content> {
+    return this._internalDB.sync(target, options, callback);
+  }
 }
