@@ -12,7 +12,7 @@ const SyncDenied = '_sync_denied';
 const SyncComplete = '_sync_complete';
 const SyncError = '_sync_error';
 
-function SyncEvent(db: string, event: string | symbol) {
+function SyncEvent(db: string, event: string | symbol): string {
   return db + '|' + event.toString();
 }
 
@@ -28,24 +28,48 @@ class SyncManager {
   private _eventEmitter: EventEmitter;
   private _authBridge: AuthBridge;
   private _loggedIn: boolean;
-  private _syncDBs = new Map<string, SyncDB>();
+  private _syncDBs: Map<string, SyncDB>;
+  private _dbg: boolean;
 
-  constructor(config: SyncConfig, authBridge: AuthBridge) {
+  constructor(config: SyncConfig, authBridge: AuthBridge, debug: boolean = false) {
     this._config = config;
     this._eventEmitter = new EventEmitter();
     this._authBridge = authBridge;
     this._loggedIn = false;
+    this._dbg = debug;
     this._authBridge.on(AuthLoggedIn, this.onUserLogin).on(AuthLoggedOut, this.onUserLogout);
+    const dbs = new Map<string, SyncDB>();
+    if (this._config.download) {
+      for (let db of this._config.download) {
+        const s = this._syncDB(db);
+        dbs.set(db, s);
+        if (this._loggedIn) {
+          s.startSync();
+        }
+      }
+    }
+    if (this._config.upload) {
+      for (let db of this._config.upload) {
+        const s = this._syncDB(db);
+        dbs.set(db, s);
+        if (this._loggedIn) {
+          s.startSync();
+        }
+      }
+    }
+    if (this._config.twoway) {
+      for (let db of this._config.twoway) {
+        const s = this._syncDB(db);
+        dbs.set(db, s);
+        if (this._loggedIn) {
+          s.startSync();
+        }
+      }
+    }
 
-    this._config.download.forEach((db) => {
-      this.syncDB(db);
-    });
-    this._config.upload.forEach((db) => {
-      this.syncDB(db);
-    });
-    this._config.twoway.forEach((db) => {
-      this.syncDB(db);
-    });
+    this._syncDBs = dbs;
+    if (this._dbg)
+      console.debug('=> SyncManager initialized', this)
   }
 
   // *********************************
@@ -70,14 +94,9 @@ class SyncManager {
     this._eventEmitter.emit(SyncEvent(dbName, event), payload, error);
   };
 
-  syncDB = (dbName: string) => {
-    console.debug(' ==> SyncDB', dbName);
-    this._syncDBs.forEach((value: SyncDB, key: string) => {
-      if (key == dbName) {
-        // console.debug('Db ', dbName, ' already setup for sync')
-        return value.getLocalDB();
-      }
-    })
+  _syncDB = (dbName: string) => {
+    if (this._dbg)
+      console.debug('_syncDB', dbName);
     const localDb = new ZDB(dbName, { adapter: 'react-native-sqlite' });
     let syncType = SyncType.UPSTREAM;
     if (this._config.download.includes(dbName)) {
@@ -93,25 +112,30 @@ class SyncManager {
         '. Please make sure you have downloaded the latest config from the cloud, and this database is defined there.' +
         ' (zest-auth.js)',
       );
-      return localDb;
     }
 
-    this._registerSync(dbName, localDb, this._authBridge.getAuthToken, syncType);
-    return localDb;
-  };
-
-  _registerSync = (name: string, localDb: ZDB<{}>, getAuthTokenFunc: Function, syncType: string) => {
-    console.debug('registerSync', name, syncType);
-    const sync = new SyncDB(this, name, localDb, getAuthTokenFunc, syncType);
-    this._syncDBs.set(name, sync);
-    if (this._loggedIn) {
-      sync.startSync();
-    }
+    const sync = new SyncDB(this, dbName, localDb, this._authBridge.getAuthToken, syncType);
     return sync;
   };
 
+  syncDB = (dbName: string) => {
+    if (this._dbg)
+      console.debug(' ==> SyncDB', dbName);
+    if (this._syncDBs.has(dbName)) {
+      return this._syncDBs.get(dbName)?.getLocalDB();
+    }
+    console.warn(
+      'No sync DB defined for name ' +
+      dbName +
+      '. Please make sure you have downloaded the latest config from the cloud, and this database is defined there.' +
+      ' (zest-auth.js)', this
+    );
+    return undefined;
+  }
+
   onUserLogin = (user: User) => {
-    console.log('onUserLogin', JSON.stringify(user));
+    if (this._dbg)
+      console.debug('onUserLogin', JSON.stringify(user));
     this._loggedIn = true;
     this._syncDBs.forEach((value: SyncDB, key: string) => {
       value.startSync();
@@ -139,8 +163,11 @@ class SyncDB {
   private _getAuthTokenFunc: Function;
   private _syncType: string;
   private _handlerSync: any;
-  constructor(syncManager: SyncManager, name: string, localDb: ZDB<{}>, getAuthTokenFunc: Function, syncType: string) {
-    // console.debug("[SyncDB] constructor", getAuthTokenFunc());
+  private _dbg: boolean;
+  constructor(syncManager: SyncManager, name: string, localDb: ZDB<{}>, getAuthTokenFunc: Function, syncType: string, debug: boolean = false) {
+    this._dbg = debug;
+    if (this._dbg)
+      console.debug("[SyncDB] constructor", getAuthTokenFunc());
     this._syncManager = syncManager;
     this._localDb = localDb;
     this._name = name;
@@ -154,14 +181,17 @@ class SyncDB {
   startSync = () => {
     const gat = this._getAuthTokenFunc;
     const remoteDbURL = this._syncManager.getRemoteSyncURL(this._name);
-    // console.debug('Start ' + this._name + ' ' + this._syncType + ' sync ', remoteDbURL, this._getAuthTokenFunc());
+    if (this._dbg)
+      console.debug('Start ' + this._name + ' ' + this._syncType + ' sync ', remoteDbURL, this._getAuthTokenFunc());
     const remoteDb = new PouchDB(remoteDbURL, {
       fetch: function (url: string, opts: any) {
-        // console.debug('=>', url, gat);
+        if (this._dbg)
+          console.debug('=>', url, gat);
         try {
           const token = gat();
           opts.headers.set('Authorization', token);
-          // console.log('=> set auth: ', token);
+          if (this._dbg)
+            console.log('=> set auth: ', token);
         } catch (err) {
           console.log('failed to get auth token', err);
         }
@@ -176,8 +206,6 @@ class SyncDB {
             retry: true,
             checkpoint: 'target',
           });
-          //  = PouchDB.replicate(remoteDbURL, sdb._internalDB, );r
-          // this._handlerSync = remoteDb.replicate.to(sdb._localDb._internalDB, );
           break;
         case SyncType.UPSTREAM:
           this._handlerSync = this._localDb.replicateTo(remoteDb, {
@@ -185,14 +213,11 @@ class SyncDB {
             retry: true,
             checkpoint: 'source',
           });
-          //  = PouchDB.replicate(remoteDbURL, sdb._internalDB, );
-          // this._handlerSync = remoteDb.replicate.to(sdb._localDb._internalDB, );
           break;
         case SyncType.TWO_WAY:
           this._handlerSync = this._localDb.sync(remoteDb, {
             live: true,
             retry: true,
-            // since: 0,
             checkpoint: 'source',
           });
           break;
@@ -203,27 +228,33 @@ class SyncDB {
     if (this._handlerSync) {
       this._handlerSync = this._handlerSync
         .on('change', (info: any) => {
-          // console.debug('change', this._name);
+          if (this._dbg)
+            console.debug('change', this._name);
           this._syncManager._emit(this._name, SyncChange, info);
         })
         .on('paused', (err: Error) => {
-          // console.debug('paused', this._name);
+          if (this._dbg)
+            console.debug('paused', this._name);
           this._syncManager._emit(this._name, SyncPaused, err);
         })
         .on('active', () => {
-          // console.debug('active', this._name);
+          if (this._dbg)
+            console.debug('active', this._name);
           this._syncManager._emit(this._name, SyncActive, {});
         })
         .on('denied', (err: Error) => {
-          // console.debug('denied', this._name);
+          if (this._dbg)
+            console.debug('denied', this._name);
           this._syncManager._emit(this._name, SyncDenied, err);
         })
         .on('complete', (info: Error) => {
-          // console.debug('complete', this._name);
+          if (this._dbg)
+            console.debug('complete', this._name);
           this._syncManager._emit(this._name, SyncComplete, info);
         })
         .on('error', (err: Error) => {
-          // console.debug('error', this._name);
+          if (this._dbg)
+            console.debug('error', this._name);
           this._syncManager._emit(this._name, SyncError, err);
         });
     }
@@ -236,7 +267,8 @@ class SyncDB {
 
   stopSync = () => {
     if (this._handlerSync) {
-      console.debug('Stop ' + this._name + ' sync');
+      if (this._dbg)
+        console.debug('Stop ' + this._name + ' sync');
       this._handlerSync.cancel();
     }
   };
