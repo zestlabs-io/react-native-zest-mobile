@@ -69,7 +69,7 @@ class SyncManager {
 
     this._syncDBs = dbs;
     if (this._dbg)
-      console.debug('=> SyncManager initialized', this)
+      console.debug('=> SyncManager initialized', this._syncDBs)
   }
 
   // *********************************
@@ -114,7 +114,7 @@ class SyncManager {
       );
     }
 
-    const sync = new SyncDB(this, dbName, localDb, this._authBridge.getAuthToken, syncType);
+    const sync = new SyncDB(this.getRemoteSyncURL, this._emit, dbName, localDb, this._authBridge.getAuthToken, syncType, this._dbg);
     return sync;
   };
 
@@ -137,17 +137,36 @@ class SyncManager {
     if (this._dbg)
       console.debug('onUserLogin', JSON.stringify(user));
     this._loggedIn = true;
-    this._syncDBs.forEach((value: SyncDB, key: string) => {
-      value.startSync();
-    });
+    this.startSync();
   };
 
   onUserLogout = () => {
     this._loggedIn = false;
-    this._syncDBs.forEach((value: SyncDB, key: string) => {
-      value.stopSync();
-    });
+    this.stopSync();
   };
+
+  startSync = () => {
+    const sdbs = this._syncDBs;
+    const keys = sdbs.entries();
+    if (this._dbg)
+      console.debug('startSync', keys);
+
+    sdbs.forEach((value: SyncDB, key: string, map: Map<string, SyncDB>) => {
+      value.startSync();
+    }, this);
+  }
+
+  stopSync = () => {
+    const sdbs = this._syncDBs;
+    const keys = sdbs.entries();
+    if (this._dbg)
+      console.debug('startSync', keys);
+
+    sdbs.forEach((value: SyncDB, key: string, map: Map<string, SyncDB>) => {
+      value.stopSync();
+    }, this);
+  }
+
 }
 
 const SyncType = {
@@ -157,18 +176,20 @@ const SyncType = {
 };
 
 class SyncDB {
-  private _syncManager: SyncManager;
+  private _remoteUrlFunction: (db: string) => string;
+  private _parentEmitter: (dbName: string, event: string | symbol, payload: any, error?: any) => void;
   private _localDb: ZDB<{}>;
   private _name: string;
   private _getAuthTokenFunc: Function;
   private _syncType: string;
   private _handlerSync: any;
   private _dbg: boolean;
-  constructor(syncManager: SyncManager, name: string, localDb: ZDB<{}>, getAuthTokenFunc: Function, syncType: string, debug: boolean = false) {
+  constructor(remoteUrlFunction: (db: string) => string, parentEmitter: (dbName: string, event: string | symbol, payload: any, error?: any) => void, name: string, localDb: ZDB<{}>, getAuthTokenFunc: Function, syncType: string, debug: boolean = false) {
     this._dbg = debug;
     if (this._dbg)
       console.debug("[SyncDB] constructor", getAuthTokenFunc());
-    this._syncManager = syncManager;
+    this._remoteUrlFunction = remoteUrlFunction;
+    this._parentEmitter = parentEmitter;
     this._localDb = localDb;
     this._name = name;
     this._getAuthTokenFunc = getAuthTokenFunc;
@@ -179,18 +200,20 @@ class SyncDB {
     return this._localDb;
   };
   startSync = () => {
-    const gat = this._getAuthTokenFunc;
-    const remoteDbURL = this._syncManager.getRemoteSyncURL(this._name);
     if (this._dbg)
-      console.debug('Start ' + this._name + ' ' + this._syncType + ' sync ', remoteDbURL, this._getAuthTokenFunc());
+      console.debug('Start ' + this._name + ' ' + this._syncType + ' sync ');
+    const gat = this._getAuthTokenFunc;
+    const remoteDbURL = this._remoteUrlFunction(this._name);
+    var handler: any;
+    const obj = this;
     const remoteDb = new PouchDB(remoteDbURL, {
       fetch: function (url: string, opts: any) {
-        if (this._dbg)
+        if (obj._dbg)
           console.debug('=>', url, gat);
         try {
           const token = gat();
           opts.headers.set('Authorization', token);
-          if (this._dbg)
+          if (obj._dbg)
             console.log('=> set auth: ', token);
         } catch (err) {
           console.log('failed to get auth token', err);
@@ -201,61 +224,63 @@ class SyncDB {
     try {
       switch (this._syncType) {
         case SyncType.DOWNSTREAM:
-          this._handlerSync = this._localDb.replicateFrom(remoteDb, {
+          handler = this._localDb.replicateFrom(remoteDb, {
             live: true,
             retry: true,
             checkpoint: 'target',
           });
           break;
         case SyncType.UPSTREAM:
-          this._handlerSync = this._localDb.replicateTo(remoteDb, {
+          handler = this._localDb.replicateTo(remoteDb, {
             live: true,
             retry: true,
             checkpoint: 'source',
           });
           break;
         case SyncType.TWO_WAY:
-          this._handlerSync = this._localDb.sync(remoteDb, {
+          handler = this._localDb.sync(remoteDb, {
             live: true,
             retry: true,
             checkpoint: 'source',
           });
           break;
+        default:
+          throw Error('Failed to determine sync type' + this._syncType);
       }
     } catch (err) {
       console.error('Failed to setup replication', err);
     }
-    if (this._handlerSync) {
-      this._handlerSync = this._handlerSync
+    if (handler) {
+      this._handlerSync = handler
         .on('change', (info: any) => {
           if (this._dbg)
             console.debug('change', this._name);
-          this._syncManager._emit(this._name, SyncChange, info);
+          this._parentEmitter(this._name, SyncChange, info);
         })
         .on('paused', (err: Error) => {
           if (this._dbg)
             console.debug('paused', this._name);
-          this._syncManager._emit(this._name, SyncPaused, err);
+          this._parentEmitter(this._name, SyncPaused, err);
         })
         .on('active', () => {
           if (this._dbg)
             console.debug('active', this._name);
-          this._syncManager._emit(this._name, SyncActive, {});
+          this._parentEmitter(this._name, SyncActive, {});
         })
         .on('denied', (err: Error) => {
           if (this._dbg)
             console.debug('denied', this._name);
-          this._syncManager._emit(this._name, SyncDenied, err);
+          this._parentEmitter(this._name, SyncDenied, err);
         })
         .on('complete', (info: Error) => {
           if (this._dbg)
             console.debug('complete', this._name);
-          this._syncManager._emit(this._name, SyncComplete, info);
+          this._parentEmitter(this._name, SyncComplete, info);
         })
         .on('error', (err: Error) => {
           if (this._dbg)
             console.debug('error', this._name);
-          this._syncManager._emit(this._name, SyncError, err);
+          this._parentEmitter(this._name, SyncError, err);
         });
     }
   };
