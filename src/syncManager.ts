@@ -199,6 +199,15 @@ class SyncDB {
   getLocalDB = () => {
     return this._localDb;
   };
+
+  resetLocalDatabase = () => {
+    this.stopSync();
+    this._localDb.destroy().then(() => {
+      this._localDb = new ZDB(this._name, { adapter: 'react-native-sqlite' });
+      this.startSync();
+    });
+  }
+
   startSync = () => {
     if (this._dbg)
       console.debug('Start ' + this._name + ' ' + this._syncType + ' sync ');
