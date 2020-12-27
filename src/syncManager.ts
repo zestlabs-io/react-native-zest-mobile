@@ -21,6 +21,7 @@ export interface SyncConfig {
   download: Array<string>;
   upload: Array<string>;
   twoway: Array<string>;
+  local?: Array<string> | null;
 }
 
 class SyncManager {
@@ -29,6 +30,7 @@ class SyncManager {
   private _authBridge: AuthBridge;
   private _loggedIn: boolean;
   private _syncDBs: Map<string, SyncDB>;
+  private _localDBs: Map<string, ZDB<{}>>;
   private _dbg: boolean;
 
   constructor(config: SyncConfig, authBridge: AuthBridge, debug: boolean = false) {
@@ -66,8 +68,17 @@ class SyncManager {
         }
       }
     }
-
     this._syncDBs = dbs;
+
+    // Local dabatabases that are not synced with backend
+    const ldbs = new Map<string, ZDB<{}>>();
+    if (this._config.local) {
+      for (let db of this._config.local) {
+        const localDb = new ZDB(db, { adapter: 'react-native-sqlite' });
+        ldbs.set(db, localDb);
+      }
+    }
+    this._localDBs = ldbs;
     if (this._dbg)
       console.debug('=> SyncManager initialized', this._syncDBs)
   }
@@ -132,6 +143,20 @@ class SyncManager {
     );
     return undefined;
   }
+
+  getLocalDB = (dbName: string) => {
+    if (this._localDBs.has(dbName)) {
+      return this._localDBs.get(dbName);
+    }
+    console.warn(
+      'No local DB defined for name ' +
+      dbName +
+      '. Please make sure you have added the correct local configuration.' +
+      ' (zest-auth.js)', this
+    );
+    return undefined;
+  }
+
 
   onUserLogin = (user: User) => {
     if (this._dbg)
