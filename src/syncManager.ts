@@ -178,6 +178,20 @@ class SyncManager {
     }
   };
 
+  restartSync = (dbName: string) => {
+    if (this._dbg) console.debug(" ==> restartSync", dbName);
+    if (this._syncDBs.has(dbName)) {
+      const sdb = this._syncDBs.get(dbName);
+      if (sdb && sdb !== null) {
+        sdb.restartSync();
+        return;
+      }
+      if (this._dbg) console.debug(" ==> restartSync failed to fetch", dbName);
+    } else {
+      if (this._dbg) console.debug(" ==> restartSync cannot find ", dbName);
+    }
+  };
+
   getLocalDB = (dbName: string): ZDB<{}> | undefined => {
     if (this._localDBs.has(dbName)) {
       return this._localDBs.get(dbName);
